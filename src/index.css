@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+/* Tailwind v4 暗色模式:跟随系统偏好 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Geist", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Consolas, monospace;
+}
+
+/* 基础重置 */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* iOS Safari 100vh 跳动问题,统一用 dvh */
+#root {
+  min-height: 100dvh;
+}
