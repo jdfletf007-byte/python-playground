@@ -65,10 +65,10 @@ export default function App() {
         const py = await window.loadPyodide!({ indexURL: PYODIDE_BASE });
 
         py.setStdout({
-          batched: (msg: string) => stdoutBuffer.current.push(msg),
+          batched: (msg: string) => stdoutBuffer.current.push(msg + "\n"),
         });
         py.setStderr({
-          batched: (msg: string) => stderrBuffer.current.push(msg),
+          batched: (msg: string) => stderrBuffer.current.push(msg + "\n"),
         });
 
         // 注入 matplotlib 辅助函数:用 Agg backend 渲染成 PNG,通过 JS bridge 传出
