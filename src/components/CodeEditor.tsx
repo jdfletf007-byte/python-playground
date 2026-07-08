@@ -45,13 +45,30 @@ export default function CodeEditor({ value, onChange }: CodeEditorProps) {
           "&": {
             height: "100%",
             fontSize: "14px",
+            backgroundColor: "#1e1e26",
           },
           ".cm-scroller": {
             fontFamily: "var(--font-mono)",
             lineHeight: "1.6",
+            backgroundColor: "#1e1e26",
           },
           ".cm-content": {
             padding: "12px",
+          },
+          // 光标:亮青色 + 加粗,在深色背景上醒目
+          ".cm-cursor": {
+            borderLeftColor: "#22d3ee",
+            borderLeftWidth: "2px",
+          },
+          ".cm-cursor.cm-cursor-primary": {
+            borderLeftColor: "#22d3ee",
+          },
+          // 当前行高亮的背景稍微亮一点
+          "&.cm-focused .cm-activeLine": {
+            backgroundColor: "#282833",
+          },
+          ".cm-activeLine": {
+            backgroundColor: "#282833",
           },
           ".cm-gutters": {
             borderRight: "1px solid #3f3f46",
@@ -60,6 +77,10 @@ export default function CodeEditor({ value, onChange }: CodeEditorProps) {
           ".cm-lineNumbers .cm-gutterElement": {
             color: "#71717a",
             padding: "0 8px 0 4px",
+          },
+          // 选中文本的颜色
+          ".cm-selectionBackground, ::selection": {
+            backgroundColor: "#264f78",
           },
         }),
       ],
