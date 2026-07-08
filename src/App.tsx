@@ -326,10 +326,4 @@ def _pp_close_all():
         pass
 `;
 
-const DEFAULT_CODE = `# 试试改这段代码,然后点"运行"
-print("你好,Python!")
-
-# 简单计算
-for i in range(5):
-    print(f"第 {i+1} 次:2 的 {i+1} 次方 = {2**(i+1)}")
-`;
+const DEFAULT_CODE = "";
