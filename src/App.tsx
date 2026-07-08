@@ -57,8 +57,6 @@ export default function App() {
   const stdoutBuffer = useRef<string[]>([]);
   const stderrBuffer = useRef<string[]>([]);
   const imageBuffer = useRef<string[]>([]);
-  // 中断缓冲区:SharedArrayBuffer 存在时可用于中断死循环
-  const interruptBuffer = useRef<Int32Array | null>(null);
 
   // 加载 Pyodide
   useEffect(() => {
@@ -94,15 +92,6 @@ export default function App() {
 
         // 注入 matplotlib 辅助函数:用 Agg backend 渲染成 PNG,通过 JS bridge 传出
         await py.runPythonAsync(MATPLOTLIB_HELPER);
-
-        // 设置中断缓冲区(需要 SharedArrayBuffer,即页面有 COOP/COEP 跨域隔离头)
-        if (typeof SharedArrayBuffer !== "undefined") {
-          const buf = new SharedArrayBuffer(4);
-          interruptBuffer.current = new Int32Array(buf);
-          (py as PyodideInterface & {
-            setInterruptBuffer: (buf: ArrayBufferLike) => void;
-          }).setInterruptBuffer(buf);
-        }
 
         setPyodide(py);
         setLoadState("ready");
@@ -169,18 +158,6 @@ export default function App() {
     pyodide.FS.writeFile(`/${fileName}`, data);
     setOutput(`数据文件 ${fileName} 已加载\n用 pd.read_csv("${fileName}") 读取`);
     setOutputType("stdout");
-  }
-
-  // 停止运行(中断死循环)
-  function handleStop() {
-    if (interruptBuffer.current) {
-      // 写入信号值 2,Pyodide 检测到后会抛 KeyboardInterrupt
-      interruptBuffer.current[0] = 2;
-    } else {
-      // 没有 SharedArrayBuffer,只能提示刷新
-      setOutput("当前环境不支持中断,请关闭页面重新打开");
-      setOutputType("stderr");
-    }
   }
 
   // 自动保存:页面隐藏(切后台/关 App)时保存当前文件
@@ -326,22 +303,13 @@ export default function App() {
       <main className="flex-1 flex flex-col gap-3 p-3 min-h-0">
         <CodeEditor value={code} onChange={setCode} />
 
-        {isRunning ? (
-          <button
-            onClick={handleStop}
-            className="px-4 py-3 bg-rose-600 text-white rounded-lg font-medium text-sm active:scale-[0.98]"
-          >
-            停止
-          </button>
-        ) : (
-          <button
-            onClick={runCode}
-            disabled={!pyodide}
-            className="px-4 py-3 bg-zinc-900 text-white rounded-lg font-medium text-sm active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100 dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            运行
-          </button>
-        )}
+        <button
+          onClick={runCode}
+          disabled={!pyodide || isRunning}
+          className="px-4 py-3 bg-zinc-900 text-white rounded-lg font-medium text-sm active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100 dark:bg-zinc-100 dark:text-zinc-900"
+        >
+          {isRunning ? "运行中…" : "运行"}
+        </button>
 
         {(output || images.length > 0) && (
           <div className="rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 min-h-[120px] relative">
