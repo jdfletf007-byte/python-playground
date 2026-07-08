@@ -47,6 +47,9 @@ export default function CodeEditor({ value, onChange }: CodeEditorProps) {
             fontSize: "14px",
             backgroundColor: "#2a2a35",
           },
+          "&.cm-focused": {
+            backgroundColor: "#2a2a35",
+          },
           ".cm-scroller": {
             fontFamily: "var(--font-mono)",
             lineHeight: "1.6",
@@ -55,6 +58,16 @@ export default function CodeEditor({ value, onChange }: CodeEditorProps) {
           ".cm-content": {
             padding: "12px",
             backgroundColor: "#2a2a35",
+          },
+          ".cm-line": {
+            backgroundColor: "#2a2a35",
+          },
+          // 通配:覆盖所有内部元素,防止任何漏网的白色背景
+          "& *": {
+            backgroundColor: "transparent !important",
+          },
+          "&, .cm-scroller, .cm-content, .cm-line, .cm-gutters, .cm-lineNumbers": {
+            backgroundColor: "#2a2a35 !important",
           },
           // 光标:亮青色 + 加粗,在深色背景上醒目
           ".cm-cursor": {
@@ -116,7 +129,8 @@ export default function CodeEditor({ value, onChange }: CodeEditorProps) {
   return (
     <div
       ref={editorRef}
-      className="flex-1 w-full min-h-[240px] overflow-auto rounded-lg border border-zinc-600 dark:border-zinc-600"
+      className="flex-1 w-full min-h-[240px] overflow-auto rounded-lg border border-zinc-600"
+      style={{ backgroundColor: "#2a2a35" }}
     />
   );
 }
