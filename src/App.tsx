@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import CodeEditor from "./components/CodeEditor";
+import FileManager from "./components/FileManager";
+import { useFiles } from "./hooks/useFiles";
 
 // Pyodide 类型(最简声明,完整类型从 CDN 加载)
 declare global {
@@ -35,6 +37,17 @@ export default function App() {
   const [outputType, setOutputType] = useState<"stdout" | "stderr" | "">("");
   const [images, setImages] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
+
+  const fileMgr = useFiles();
+
+  // 初始化时加载活动文件内容
+  useEffect(() => {
+    if (fileMgr.activeName) {
+      const content = fileMgr.getActiveContent();
+      if (content) setCode(content);
+    }
+  }, [fileMgr.activeName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const stdoutBuffer = useRef<string[]>([]);
   const stderrBuffer = useRef<string[]>([]);
@@ -85,6 +98,31 @@ export default function App() {
       }
     }
   }, []);
+
+  // 保存当前代码到活动文件(没活动文件则弹新建)
+  function handleSave() {
+    if (fileMgr.activeName) {
+      fileMgr.saveFile(fileMgr.activeName, code);
+    } else {
+      // 没有活动文件,打开文件管理器新建
+      setShowFiles(true);
+    }
+  }
+
+  // 从文件列表选一个文件,加载内容到编辑器
+  function handleSelectFile(name: string) {
+    fileMgr.setActiveName(name);
+    const content = fileMgr.getFileContent(name);
+    setCode(content);
+    setShowFiles(false);
+  }
+
+  // 新建文件后,清空编辑器
+  function handleCreateFile(name: string) {
+    fileMgr.createFile(name, "");
+    setCode("");
+    setShowFiles(false);
+  }
 
   async function runCode() {
     if (!pyodide || isRunning) return;
@@ -184,11 +222,25 @@ export default function App() {
 
   return (
     <div className="min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 flex flex-col">
-      <header className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-        <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-          Python 练习场
-        </h1>
-        <span className="text-xs text-zinc-400 dark:text-zinc-600">PoC</span>
+      <header className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={() => setShowFiles(true)}
+            className="text-zinc-600 dark:text-zinc-300 text-sm active:scale-[0.98] px-2 py-1 -ml-2 shrink-0"
+            aria-label="文件"
+          >
+            ☰
+          </button>
+          <span className="text-sm text-zinc-500 dark:text-zinc-500 truncate">
+            {fileMgr.activeName || "未命名"}
+          </span>
+        </div>
+        <button
+          onClick={handleSave}
+          className="text-sm text-blue-600 dark:text-blue-400 active:scale-[0.98] px-3 py-1 shrink-0"
+        >
+          保存
+        </button>
       </header>
 
       <main className="flex-1 flex flex-col gap-3 p-3 min-h-0">
@@ -230,6 +282,18 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {showFiles && (
+        <FileManager
+          files={fileMgr.files}
+          activeName={fileMgr.activeName}
+          onClose={() => setShowFiles(false)}
+          onSelect={handleSelectFile}
+          onCreate={handleCreateFile}
+          onDelete={fileMgr.deleteFile}
+          onRename={fileMgr.renameFile}
+        />
+      )}
 
       <footer className="px-4 py-2 border-t border-zinc-200 dark:border-zinc-800">
         <p className="text-xs text-zinc-400 dark:text-zinc-600 text-center">
