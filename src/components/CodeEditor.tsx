@@ -45,15 +45,16 @@ export default function CodeEditor({ value, onChange }: CodeEditorProps) {
           "&": {
             height: "100%",
             fontSize: "14px",
-            backgroundColor: "#1e1e26",
+            backgroundColor: "#2a2a35",
           },
           ".cm-scroller": {
             fontFamily: "var(--font-mono)",
             lineHeight: "1.6",
-            backgroundColor: "#1e1e26",
+            backgroundColor: "#2a2a35",
           },
           ".cm-content": {
             padding: "12px",
+            backgroundColor: "#2a2a35",
           },
           // 光标:亮青色 + 加粗,在深色背景上醒目
           ".cm-cursor": {
@@ -63,24 +64,24 @@ export default function CodeEditor({ value, onChange }: CodeEditorProps) {
           ".cm-cursor.cm-cursor-primary": {
             borderLeftColor: "#22d3ee",
           },
-          // 当前行高亮的背景稍微亮一点
+          // 当前行高亮的背景再亮一点
           "&.cm-focused .cm-activeLine": {
-            backgroundColor: "#282833",
+            backgroundColor: "#34343f",
           },
           ".cm-activeLine": {
-            backgroundColor: "#282833",
+            backgroundColor: "#34343f",
           },
           ".cm-gutters": {
-            borderRight: "1px solid #3f3f46",
-            backgroundColor: "#18181b",
+            borderRight: "1px solid #4a4a55",
+            backgroundColor: "#232330",
           },
           ".cm-lineNumbers .cm-gutterElement": {
-            color: "#71717a",
+            color: "#8a8a95",
             padding: "0 8px 0 4px",
           },
           // 选中文本的颜色
           ".cm-selectionBackground, ::selection": {
-            backgroundColor: "#264f78",
+            backgroundColor: "#3a5a8a",
           },
         }),
       ],
@@ -115,7 +116,7 @@ export default function CodeEditor({ value, onChange }: CodeEditorProps) {
   return (
     <div
       ref={editorRef}
-      className="flex-1 w-full min-h-[240px] overflow-auto rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-900"
+      className="flex-1 w-full min-h-[240px] overflow-auto rounded-lg border border-zinc-600 dark:border-zinc-600"
     />
   );
 }
