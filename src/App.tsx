@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import CodeEditor from "./components/CodeEditor";
 import FileManager from "./components/FileManager";
+import FileUpload from "./components/FileUpload";
 import { useFiles } from "./hooks/useFiles";
 
 // Pyodide 类型(最简声明,完整类型从 CDN 加载)
@@ -19,6 +20,10 @@ interface PyodideInterface {
   ) => Promise<void>;
   setStdout: (options: { batched: (msg: string) => void }) => void;
   setStderr: (options: { batched: (msg: string) => void }) => void;
+  FS: {
+    writeFile: (path: string, data: Uint8Array | string) => void;
+    readFile: (path: string) => Uint8Array;
+  };
 }
 
 // Pyodide 版本(锁 0.27.3+,避开 0.27.1/0.27.2 的 iOS Safari 崩溃 bug)
@@ -52,6 +57,8 @@ export default function App() {
   const stdoutBuffer = useRef<string[]>([]);
   const stderrBuffer = useRef<string[]>([]);
   const imageBuffer = useRef<string[]>([]);
+  // 中断缓冲区:SharedArrayBuffer 存在时可用于中断死循环
+  const interruptBuffer = useRef<Int32Array | null>(null);
 
   // 加载 Pyodide
   useEffect(() => {
@@ -88,6 +95,15 @@ export default function App() {
         // 注入 matplotlib 辅助函数:用 Agg backend 渲染成 PNG,通过 JS bridge 传出
         await py.runPythonAsync(MATPLOTLIB_HELPER);
 
+        // 设置中断缓冲区(需要 SharedArrayBuffer,即页面有 COOP/COEP 跨域隔离头)
+        if (typeof SharedArrayBuffer !== "undefined") {
+          const buf = new SharedArrayBuffer(4);
+          interruptBuffer.current = new Int32Array(buf);
+          (py as PyodideInterface & {
+            setInterruptBuffer: (buf: ArrayBufferLike) => void;
+          }).setInterruptBuffer(buf);
+        }
+
         setPyodide(py);
         setLoadState("ready");
       } catch (err) {
@@ -109,20 +125,74 @@ export default function App() {
     }
   }
 
-  // 从文件列表选一个文件,加载内容到编辑器
+  // 从文件列表选一个文件,加载内容到编辑器(切换前自动保存当前)
   function handleSelectFile(name: string) {
+    // 自动保存当前文件
+    if (fileMgr.activeName) {
+      fileMgr.saveFile(fileMgr.activeName, code);
+    }
     fileMgr.setActiveName(name);
     const content = fileMgr.getFileContent(name);
     setCode(content);
     setShowFiles(false);
   }
 
-  // 新建文件后,清空编辑器
+  // 新建文件后,清空编辑器(新建前自动保存当前)
   function handleCreateFile(name: string) {
+    if (fileMgr.activeName) {
+      fileMgr.saveFile(fileMgr.activeName, code);
+    }
     fileMgr.createFile(name, "");
     setCode("");
     setShowFiles(false);
   }
+
+  // 重置会话:清空 Pyodide 全局命名空间(变量/函数残留)
+  async function handleResetSession() {
+    if (!pyodide || isRunning) return;
+    try {
+      await pyodide.runPythonAsync("globals().clear()");
+      await pyodide.runPythonAsync("_pp_close_all()");
+      setOutput("已重置 Python 环境");
+      setOutputType("stdout");
+      setImages([]);
+    } catch (err) {
+      setOutput(err instanceof Error ? err.message : String(err));
+      setOutputType("stderr");
+    }
+  }
+
+  // 上传数据文件到 Pyodide 虚拟文件系统
+  async function handleUpload(fileName: string, data: Uint8Array) {
+    if (!pyodide) throw new Error("Python 环境未就绪");
+    // 写入 Pyodide 虚拟文件系统根目录
+    pyodide.FS.writeFile(`/${fileName}`, data);
+    setOutput(`数据文件 ${fileName} 已加载\n用 pd.read_csv("${fileName}") 读取`);
+    setOutputType("stdout");
+  }
+
+  // 停止运行(中断死循环)
+  function handleStop() {
+    if (interruptBuffer.current) {
+      // 写入信号值 2,Pyodide 检测到后会抛 KeyboardInterrupt
+      interruptBuffer.current[0] = 2;
+    } else {
+      // 没有 SharedArrayBuffer,只能提示刷新
+      setOutput("当前环境不支持中断,请关闭页面重新打开");
+      setOutputType("stderr");
+    }
+  }
+
+  // 自动保存:页面隐藏(切后台/关 App)时保存当前文件
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.hidden && fileMgr.activeName) {
+        fileMgr.saveFile(fileMgr.activeName, code);
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [fileMgr, code]);
 
   async function runCode() {
     if (!pyodide || isRunning) return;
@@ -235,27 +305,57 @@ export default function App() {
             {fileMgr.activeName || "未命名"}
           </span>
         </div>
-        <button
-          onClick={handleSave}
-          className="text-sm text-blue-600 dark:text-blue-400 active:scale-[0.98] px-3 py-1 shrink-0"
-        >
-          保存
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={handleResetSession}
+            className="text-sm text-zinc-500 dark:text-zinc-500 active:scale-[0.98] px-1 py-1"
+            aria-label="重置会话"
+            title="重置 Python 环境(清空所有变量)"
+          >
+            ↻
+          </button>
+          <button
+            onClick={handleSave}
+            className="text-sm text-blue-600 dark:text-blue-400 active:scale-[0.98] px-3 py-1"
+          >
+            保存
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 flex flex-col gap-3 p-3 min-h-0">
         <CodeEditor value={code} onChange={setCode} />
 
-        <button
-          onClick={runCode}
-          disabled={!pyodide || isRunning}
-          className="px-4 py-3 bg-zinc-900 text-white rounded-lg font-medium text-sm active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100 dark:bg-zinc-100 dark:text-zinc-900"
-        >
-          {isRunning ? "运行中…" : "运行"}
-        </button>
+        {isRunning ? (
+          <button
+            onClick={handleStop}
+            className="px-4 py-3 bg-rose-600 text-white rounded-lg font-medium text-sm active:scale-[0.98]"
+          >
+            停止
+          </button>
+        ) : (
+          <button
+            onClick={runCode}
+            disabled={!pyodide}
+            className="px-4 py-3 bg-zinc-900 text-white rounded-lg font-medium text-sm active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100 dark:bg-zinc-100 dark:text-zinc-900"
+          >
+            运行
+          </button>
+        )}
 
         {(output || images.length > 0) && (
-          <div className="rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 min-h-[120px]">
+          <div className="rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 min-h-[120px] relative">
+            <button
+              onClick={() => {
+                setOutput("");
+                setOutputType("");
+                setImages([]);
+              }}
+              className="absolute top-2 right-2 text-xs text-zinc-400 dark:text-zinc-600 active:text-zinc-900 dark:active:text-zinc-100 px-2 py-0.5"
+              aria-label="清空输出"
+            >
+              清空
+            </button>
             {images.length > 0 && (
               <div className="flex flex-col gap-2 mb-2">
                 {images.map((src, i) => (
@@ -295,9 +395,10 @@ export default function App() {
         />
       )}
 
-      <footer className="px-4 py-2 border-t border-zinc-200 dark:border-zinc-800">
-        <p className="text-xs text-zinc-400 dark:text-zinc-600 text-center">
-          Pyodide {PYODIDE_VERSION} · 代码在浏览器本地运行
+      <footer className="px-4 py-2 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <FileUpload onUpload={handleUpload} />
+        <p className="text-xs text-zinc-400 dark:text-zinc-600">
+          Pyodide {PYODIDE_VERSION} · 本地运行
         </p>
       </footer>
     </div>
