@@ -136,13 +136,14 @@ export default function App() {
     setShowFiles(false);
   }
 
-  // 重置会话:清空 Pyodide 全局命名空间(变量/函数残留)
+  // 重置会话:清空用户定义的变量/函数,保留 Pyodide 内置和辅助函数
   async function handleResetSession() {
     if (!pyodide || isRunning) return;
     try {
+      // 清掉所有全局变量,然后重新注入辅助函数(它们也会被 clear 掉)
       await pyodide.runPythonAsync("globals().clear()");
-      await pyodide.runPythonAsync("_pp_close_all()");
-      setOutput("已重置 Python 环境");
+      await pyodide.runPythonAsync(MATPLOTLIB_HELPER);
+      setOutput("已重置 Python 环境,所有变量已清空");
       setOutputType("stdout");
       setImages([]);
     } catch (err) {
