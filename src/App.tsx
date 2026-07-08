@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import CodeEditor from "./components/CodeEditor";
 
 // Pyodide 类型(最简声明,完整类型从 CDN 加载)
 declare global {
@@ -191,15 +192,7 @@ export default function App() {
       </header>
 
       <main className="flex-1 flex flex-col gap-3 p-3 min-h-0">
-        <textarea
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          spellCheck={false}
-          autoCapitalize="off"
-          autoCorrect="off"
-          className="flex-1 w-full min-h-[240px] p-3 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 font-mono text-sm text-zinc-900 dark:text-zinc-100 resize-none focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 leading-relaxed"
-          placeholder="在这里输入 Python 代码…"
-        />
+        <CodeEditor value={code} onChange={setCode} />
 
         <button
           onClick={runCode}
